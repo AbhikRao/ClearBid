@@ -1,0 +1,30 @@
+TENDER SUBMISSION - AMBIGUOUS CASE 1
+Firm: Bajaj Defence Systems
+Location: Pune, Maharashtra
+PAN: AAHFB3344P
+GSTIN: 27AAHFB3344P1ZT (Active)
+
+[SCANNED DOCUMENT - PARTIAL CONTENT]
+Financial Certificate: [SCAN QUALITY LOW]
+Turnover FY 2021-22: Rs. [illegible - appears to be 5 or 6 crore]
+Turnover FY 2022-23: Rs. 6,80,00,000
+Turnover FY 2023-24: Rs. 7,20,00,000
+Note: FY 2021-22 balance sheet scan is partially damaged. CA signature visible.
+CA Name: Pradeep Kulkarni & Associates, Pune
+
+ISO CERTIFICATE: [PHOTOCOPY - LOW RESOLUTION]
+Certificate appears to be ISO 9001:2015
+Certifying Body: [partially illegible] ...QAI India...
+Certificate No: QAI-PUN-....-2022 [number partially obscured]
+Expiry: [date stamp smudged - could be March 2025 or March 2026]
+
+WORK EXPERIENCE:
+Work 1: Security systems for Army Cantonment, Pune
+Value: Rs. 2,40,00,000 - Completed 2022
+Work Order attached (photocopy, partially legible)
+
+Work 2: Surveillance project, Maharashtra Police
+Value: Rs. 1,60,00,000 - Completed 2023
+
+SOLVENCY:
+Bank of Maharashtra certificate: Rs. 1,20,00,000 dated January 2026

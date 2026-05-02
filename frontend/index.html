@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ClearBid — AI Procurement Auditor</title>
+<style>
+  :root {
+    --navy: #1B2A4A; --steel: #2C4A7C; --gold: #C9A84C;
+    --light: #F7F9FC; --alt: #EEF2F8; --rule: #D1D9E6;
+    --gray: #4A5568; --text: #1A1F2E; --white: #ffffff;
+    --green: #1E6B3C; --red: #8B1A1A; --amber: #8B5A00;
+    --green-bg: #EBF5EC; --red-bg: #FCECEC; --amber-bg: #FDF6E3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--light); color: var(--text); }
+
+  header {
+    background: var(--navy); color: white; padding: 0 32px;
+    display: flex; align-items: center; justify-content: space-between; height: 56px;
+    border-bottom: 3px solid var(--gold);
+  }
+  header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.3px; }
+  header span { font-size: 12px; color: #A8BCCF; }
+
+  .layout { display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 56px); }
+
+  .sidebar {
+    background: white; border-right: 1px solid var(--rule);
+    padding: 24px 16px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .sidebar h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--gray); margin-bottom: 4px; margin-top: 12px; }
+  .step-btn {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    border-radius: 8px; cursor: pointer; transition: background 0.15s;
+    border: none; background: none; width: 100%; text-align: left; font-size: 14px; color: var(--text);
+  }
+  .step-btn:hover { background: var(--alt); }
+  .step-btn.active { background: var(--alt); font-weight: 600; color: var(--steel); }
+  .step-btn .num {
+    width: 24px; height: 24px; border-radius: 50%; background: var(--steel);
+    color: white; font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .step-btn.done .num { background: var(--green); }
+
+  .main { padding: 32px; overflow-y: auto; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  h2 { font-size: 20px; color: var(--navy); margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: var(--gray); margin-bottom: 24px; }
+
+  .upload-zone {
+    border: 2px dashed var(--rule); border-radius: 12px; padding: 40px;
+    text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s;
+    background: white;
+  }
+  .upload-zone:hover { border-color: var(--steel); background: var(--alt); }
+  .upload-zone input { display: none; }
+  .upload-zone .icon { font-size: 36px; margin-bottom: 12px; }
+  .upload-zone p { color: var(--gray); font-size: 13px; }
+  .upload-zone strong { color: var(--steel); }
+
+  .btn {
+    padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: 14px; font-weight: 600; transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: var(--steel); color: white; }
+  .btn-gold { background: var(--gold); color: white; }
+  .btn-danger { background: var(--red); color: white; }
+  .btn-sm { padding: 6px 14px; font-size: 12px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .card {
+    background: white; border-radius: 12px; border: 1px solid var(--rule);
+    padding: 20px; margin-bottom: 16px;
+  }
+
+  .criteria-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 16px; }
+  .crit-card {
+    background: white; border: 1px solid var(--rule); border-radius: 10px;
+    padding: 14px; border-left: 4px solid var(--steel);
+  }
+  .crit-card .crit-id { font-size: 10px; color: var(--gray); font-weight: 600; text-transform: uppercase; }
+  .crit-card .crit-desc { font-size: 13px; margin: 4px 0; font-weight: 500; }
+  .crit-card .crit-meta { font-size: 11px; color: var(--gray); }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; margin-right: 4px;
+  }
+  .badge-mandatory { background: #FDEAEA; color: var(--red); }
+  .badge-optional  { background: var(--alt); color: var(--gray); }
+  .badge-financial  { background: #EBF5EC; color: var(--green); }
+  .badge-technical  { background: #EBF0FA; color: var(--steel); }
+  .badge-compliance { background: #FDF6E3; color: var(--amber); }
+  .badge-document   { background: var(--alt); color: var(--gray); }
+
+  .bidder-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .bidder-row {
+    background: white; border: 1px solid var(--rule); border-radius: 10px;
+    padding: 14px 18px; display: flex; align-items: center; gap: 12px;
+  }
+  .bidder-icon { font-size: 24px; }
+  .bidder-info { flex: 1; }
+  .bidder-info strong { font-size: 14px; display: block; }
+  .bidder-info span { font-size: 12px; color: var(--gray); }
+</style>
+</head>
+
+<style>
+  /* Results table */
+  .eval-section { margin-bottom: 32px; }
+  .eval-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-radius: 10px 10px 0 0;
+    background: var(--navy); color: white;
+  }
+  .eval-header h3 { font-size: 15px; }
+  .overall-badge {
+    padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+  }
+  .overall-ELIGIBLE    { background: var(--green-bg); color: var(--green); }
+  .overall-NOT_ELIGIBLE{ background: var(--red-bg);   color: var(--red); }
+  .overall-NEEDS_REVIEW{ background: var(--amber-bg); color: var(--amber); }
+
+  table { width: 100%; border-collapse: collapse; background: white; }
+  th { background: var(--alt); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--gray); padding: 10px 12px; text-align: left; }
+  td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--light); }
+
+  .verdict-chip {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+  }
+  .verdict-ELIGIBLE     { background: var(--green-bg); color: var(--green); }
+  .verdict-NOT_ELIGIBLE { background: var(--red-bg);   color: var(--red); }
+  .verdict-NEEDS_REVIEW { background: var(--amber-bg); color: var(--amber); }
+
+  .conf-bar { display: flex; align-items: center; gap: 6px; }
+  .conf-track { flex: 1; height: 6px; background: var(--rule); border-radius: 3px; min-width: 60px; }
+  .conf-fill  { height: 100%; border-radius: 3px; background: var(--steel); }
+  .conf-num   { font-size: 11px; color: var(--gray); width: 30px; }
+
+  .reasoning-text { font-size: 11px; color: var(--gray); margin-top: 3px; font-style: italic; }
+
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; background: var(--navy);
+    color: white; padding: 12px 20px; border-radius: 8px; font-size: 13px;
+    border-left: 4px solid var(--gold); display: none; z-index: 999;
+    animation: slideup 0.3s ease;
+  }
+  @keyframes slideup { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  .spinner {
+    display: inline-block; width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3); border-top-color: white;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .progress-steps {
+    display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .progress-step {
+    padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    background: var(--alt); color: var(--gray);
+  }
+  .progress-step.done { background: var(--green-bg); color: var(--green); }
+  .progress-step.active { background: var(--steel); color: white; }
+
+  .summary-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
+  }
+  .summary-card {
+    background: white; border: 1px solid var(--rule); border-radius: 10px;
+    padding: 16px; text-align: center;
+  }
+  .summary-card .num { font-size: 28px; font-weight: 700; color: var(--navy); }
+  .summary-card .lbl { font-size: 11px; color: var(--gray); text-transform: uppercase; margin-top: 4px; }
+  .actions-row { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+</style>
+
+<body>
+<header>
+  <h1>⚖️ ClearBid</h1>
+  <span>AI Procurement Auditor · AI for Bharat Hackathon · Theme 3: CRPF</span>
+</header>
+
+<div class="layout">
+  <div class="sidebar">
+    <h3>Workflow</h3>
+    <button class="step-btn active" id="nav-tender" onclick="showPanel('tender')">
+      <span class="num" id="num-tender">1</span> Upload Tender
+    </button>
+    <button class="step-btn" id="nav-criteria" onclick="showPanel('criteria')">
+      <span class="num" id="num-criteria">2</span> Review Criteria
+    </button>
+    <button class="step-btn" id="nav-bidders" onclick="showPanel('bidders')">
+      <span class="num" id="num-bidders">3</span> Upload Bidders
+    </button>
+    <button class="step-btn" id="nav-evaluate" onclick="showPanel('evaluate')">
+      <span class="num" id="num-evaluate">4</span> Evaluate
+    </button>
+    <button class="step-btn" id="nav-results" onclick="showPanel('results')">
+      <span class="num" id="num-results">5</span> Results & Report
+    </button>
+
+    <div style="margin-top:auto; padding-top:16px; border-top:1px solid var(--rule);">
+      <button class="btn btn-danger btn-sm" style="width:100%" onclick="resetAll()">🔄 Reset</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- PANEL 1: UPLOAD TENDER -->
+    <div class="panel active" id="panel-tender">
+      <h2>Upload Tender Document</h2>
+      <p class="subtitle">Upload the CRPF tender PDF. The AI will automatically extract all eligibility criteria.</p>
+      <div class="upload-zone" onclick="document.getElementById('tender-input').click()">
+        <input type="file" id="tender-input" accept=".pdf,.txt" onchange="handleTenderUpload(event)"/>
+        <div class="icon">📄</div>
+        <strong>Click to upload tender document</strong>
+        <p>Supports PDF and TXT · Max 10MB</p>
+      </div>
+      <div id="tender-status" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- PANEL 2: CRITERIA -->
+    <div class="panel" id="panel-criteria">
+      <h2>Extracted Eligibility Criteria</h2>
+      <p class="subtitle">Review the criteria extracted from the tender. The AI has classified each one.</p>
+      <div id="criteria-container"><p style="color:var(--gray)">Upload a tender first.</p></div>
+      <div style="margin-top:20px">
+        <button class="btn btn-primary" onclick="showPanel('bidders')">Continue → Upload Bidders</button>
+      </div>
+    </div>
+
+    <!-- PANEL 3: BIDDERS -->
+    <div class="panel" id="panel-bidders">
+      <h2>Upload Bidder Submissions</h2>
+      <p class="subtitle">Upload documents for each bidder. You can upload multiple bidders one at a time.</p>
+      <div class="upload-zone" onclick="document.getElementById('bidder-input').click()">
+        <input type="file" id="bidder-input" accept=".pdf,.txt" onchange="handleBidderUpload(event)"/>
+        <div class="icon">🏢</div>
+        <strong>Click to upload a bidder document</strong>
+        <p>Each upload = one bidder</p>
+      </div>
+      <div id="bidder-status" style="margin-top:16px;"></div>
+      <div id="bidder-list" class="bidder-list" style="margin-top:16px;"></div>
+      <div style="margin-top:20px">
+        <button class="btn btn-primary" id="evaluate-btn" onclick="runEvaluation()" disabled>
+          ▶ Run Evaluation
+        </button>
+      </div>
+    </div>
+
+    <!-- PANEL 4: EVALUATING -->
+    <div class="panel" id="panel-evaluate">
+      <h2>Running Evaluation</h2>
+      <p class="subtitle">The AI is evaluating each bidder against every criterion. This takes a moment.</p>
+      <div class="card" style="text-align:center; padding:40px">
+        <div style="font-size:48px;margin-bottom:16px">⚙️</div>
+        <p style="font-size:16px;color:var(--navy);font-weight:600" id="eval-status-text">Initialising evaluation engine...</p>
+        <p style="font-size:13px;color:var(--gray);margin-top:8px" id="eval-sub-text">Grounding LLM reasoning in retrieved evidence only</p>
+        <div style="margin-top:20px; display:flex; justify-content:center">
+          <div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:var(--rule);border-top-color:var(--steel)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL 5: RESULTS -->
+    <div class="panel" id="panel-results">
+      <h2>Evaluation Results</h2>
+      <p class="subtitle">Full criterion-level breakdown for each bidder. Click any row for reasoning.</p>
+      <div class="summary-row" id="summary-cards"></div>
+      <div class="actions-row">
+        <button class="btn btn-gold" onclick="exportReport()">⬇ Export PDF Report</button>
+        <button class="btn btn-primary" onclick="showPanel('bidders')">← Upload More Bidders</button>
+      </div>
+      <div id="results-container"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "http://localhost:8000";
+let state = { tender: false, criteria: [], bidders: [], evaluations: [] };
+
+function toast(msg, dur=3000) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.style.display = "block";
+  setTimeout(() => t.style.display = "none", dur);
+}
+
+function showPanel(name) {
+  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".step-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("panel-" + name).classList.add("active");
+  document.getElementById("nav-" + name).classList.add("active");
+}
+
+function markDone(step) {
+  const el = document.getElementById("num-" + step);
+  el.textContent = "✓";
+  document.getElementById("nav-" + step).classList.add("done");
+}
+
+async function handleTenderUpload(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const status = document.getElementById("tender-status");
+  status.innerHTML = `<div class="card" style="display:flex;gap:12px;align-items:center">
+    <div class="spinner"></div>
+    <div><strong>Uploading and extracting criteria...</strong><br>
+    <span style="font-size:12px;color:var(--gray)">AI is parsing ${file.name}</span></div></div>`;
+
+  const form = new FormData(); form.append("file", file);
+  try {
+    const res = await fetch(`${API}/upload-tender`, { method: "POST", body: form });
+    const data = await res.json();
+    state.tender = true; state.criteria = data.criteria;
+    markDone("tender");
+    status.innerHTML = `<div class="card" style="border-left:4px solid var(--green)">
+      <strong style="color:var(--green)">✓ Tender uploaded successfully</strong><br>
+      <span style="font-size:13px;color:var(--gray)">${data.criteria.length} eligibility criteria extracted</span><br>
+      <span style="font-size:11px;color:var(--gray);font-style:italic;margin-top:4px;display:block">"${data.tender_preview}..."</span>
+    </div>`;
+    renderCriteria(data.criteria);
+    toast(`✓ ${data.criteria.length} criteria extracted`);
+    setTimeout(() => showPanel("criteria"), 1200);
+  } catch(err) {
+    status.innerHTML = `<div class="card" style="border-left:4px solid var(--red)">
+      <strong style="color:var(--red)">Error uploading tender</strong><br>
+      <span style="font-size:12px">${err.message}</span></div>`;
+  }
+}
+
+function renderCriteria(criteria) {
+  const c = document.getElementById("criteria-container");
+  if (!criteria.length) { c.innerHTML = "<p>No criteria found.</p>"; return; }
+  c.innerHTML = `<p style="margin-bottom:12px;color:var(--gray);font-size:13px">
+    ${criteria.length} criteria extracted · ${criteria.filter(x=>x.mandatory).length} mandatory</p>
+  <div class="criteria-grid">${criteria.map(cr => `
+    <div class="crit-card">
+      <div class="crit-id">${cr.id}</div>
+      <div class="crit-desc">${cr.description}</div>
+      <div class="crit-meta" style="margin-top:6px">
+        <span class="badge badge-${cr.mandatory ? 'mandatory' : 'optional'}">${cr.mandatory ? 'Mandatory' : 'Optional'}</span>
+        <span class="badge badge-${cr.category}">${cr.category}</span>
+      </div>
+      ${cr.threshold ? `<div style="font-size:11px;color:var(--gray);margin-top:6px">Threshold: <b>${cr.threshold}</b></div>` : ''}
+    </div>`).join('')}</div>`;
+}
+
+async function handleBidderUpload(e) {
+  const file = e.target.files[0]; if (!file) return;
+  e.target.value = "";
+  const status = document.getElementById("bidder-status");
+  status.innerHTML = `<div style="display:flex;gap:8px;align-items:center;color:var(--gray);font-size:13px">
+    <div class="spinner"></div> Uploading ${file.name}...</div>`;
+
+  const form = new FormData(); form.append("file", file);
+  const name = file.name.replace(/\.[^/.]+$/, "");
+  const url = `${API}/upload-bidder?name=${encodeURIComponent(name)}`;
+  try {
+    const res = await fetch(url, { method: "POST", body: form });
+    const data = await res.json();
+    state.bidders.push({ id: data.bidder_id, name: data.name });
+    status.innerHTML = "";
+    renderBidderList();
+    document.getElementById("evaluate-btn").disabled = false;
+    markDone("bidders");
+    toast(`✓ ${data.name} uploaded`);
+  } catch(err) {
+    status.innerHTML = `<span style="color:var(--red);font-size:13px">Upload failed: ${err.message}</span>`;
+  }
+}
+
+function renderBidderList() {
+  const el = document.getElementById("bidder-list");
+  if (!state.bidders.length) { el.innerHTML = ""; return; }
+  el.innerHTML = state.bidders.map((b,i) => `
+    <div class="bidder-row">
+      <div class="bidder-icon">🏢</div>
+      <div class="bidder-info">
+        <strong>${b.name}</strong>
+        <span>${b.id} · Ready for evaluation</span>
+      </div>
+      <span class="badge badge-optional">Uploaded</span>
+    </div>`).join('');
+}
+
+async function runEvaluation() {
+  showPanel("evaluate");
+  const steps = [
+    ["Chunking tender criteria for retrieval...", "Building FAISS vector index"],
+    ["Embedding bidder documents...", "Semantic chunking complete"],
+    ["Retrieving evidence for each criterion...", "RAG grounding active — no hallucination"],
+    ["LLM evaluating criterion by criterion...", "Evidence-linked reasoning in progress"],
+    ["Calibrating confidence scores...", "Applying Platt Scaling"],
+    ["Generating audit trail...", "All verdicts traceable to source evidence"],
+  ];
+  let i = 0;
+  const iv = setInterval(() => {
+    if (i < steps.length) {
+      document.getElementById("eval-status-text").textContent = steps[i][0];
+      document.getElementById("eval-sub-text").textContent = steps[i][1];
+      i++;
+    }
+  }, 1800);
+
+  try {
+    const res = await fetch(`${API}/evaluate`, { method: "POST" });
+    const data = await res.json();
+    clearInterval(iv);
+    state.evaluations = data.evaluations;
+    markDone("evaluate");
+    renderResults(data.evaluations);
+    showPanel("results");
+    toast("✓ Evaluation complete");
+  } catch(err) {
+    clearInterval(iv);
+    document.getElementById("eval-status-text").textContent = "Evaluation failed";
+    document.getElementById("eval-sub-text").textContent = err.message;
+    toast("Error: " + err.message, 5000);
+  }
+}
+
+function renderResults(evaluations) {
+  // Summary cards
+  const eligible = evaluations.filter(e => e.overall === "ELIGIBLE").length;
+  const notEligible = evaluations.filter(e => e.overall === "NOT_ELIGIBLE").length;
+  const review = evaluations.filter(e => e.overall === "NEEDS_REVIEW").length;
+  document.getElementById("summary-cards").innerHTML = `
+    <div class="summary-card"><div class="num">${evaluations.length}</div><div class="lbl">Total Bidders</div></div>
+    <div class="summary-card"><div class="num" style="color:var(--green)">${eligible}</div><div class="lbl">Eligible</div></div>
+    <div class="summary-card"><div class="num" style="color:var(--red)">${notEligible}</div><div class="lbl">Not Eligible</div></div>
+    <div class="summary-card"><div class="num" style="color:var(--amber)">${review}</div><div class="lbl">Needs Review</div></div>`;
+
+  document.getElementById("results-container").innerHTML = evaluations.map(ev => `
+    <div class="eval-section">
+      <div class="eval-header">
+        <h3>🏢 ${ev.name} <span style="font-size:12px;color:#A8BCCF;margin-left:8px">${ev.bidder_id}</span></h3>
+        <div>
+          <span style="font-size:12px;color:#A8BCCF;margin-right:12px">Avg confidence: ${ev.avg_confidence}</span>
+          <span class="overall-badge overall-${ev.overall}">${ev.overall.replace("_"," ")}</span>
+        </div>
+      </div>
+      <table>
+        <thead><tr>
+          <th style="width:30%">Criterion</th>
+          <th style="width:14%">Verdict</th>
+          <th style="width:12%">Confidence</th>
+          <th style="width:30%">Evidence</th>
+          <th style="width:14%">Source</th>
+        </tr></thead>
+        <tbody>${ev.criteria_results.map(r => `
+          <tr>
+            <td>
+              <div style="font-weight:500">${r.criterion_desc}</div>
+              <div style="margin-top:3px">
+                <span class="badge badge-${r.mandatory ? 'mandatory' : 'optional'}">${r.mandatory ? 'Mandatory' : 'Optional'}</span>
+              </div>
+            </td>
+            <td><span class="verdict-chip verdict-${r.verdict}">${r.verdict.replace("_"," ")}</span></td>
+            <td>
+              <div class="conf-bar">
+                <div class="conf-track"><div class="conf-fill" style="width:${r.confidence*100}%;background:${r.confidence>0.85?'var(--green)':r.confidence>0.6?'var(--steel)':'var(--amber)'}"></div></div>
+                <span class="conf-num">${r.confidence}</span>
+              </div>
+            </td>
+            <td>
+              <div>${r.evidence}</div>
+              <div class="reasoning-text">${r.reasoning}</div>
+            </td>
+            <td style="color:var(--gray);font-size:12px">${r.page_reference}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
+  markDone("results");
+}
+
+async function exportReport() {
+  toast("Generating PDF report...");
+  window.open(`${API}/export-report`, "_blank");
+}
+
+async function resetAll() {
+  if (!confirm("Reset all data?")) return;
+  await fetch(`${API}/reset`, { method: "DELETE" });
+  state = { tender: false, criteria: [], bidders: [], evaluations: [] };
+  location.reload();
+}
+
+// Restore state on load
+window.onload = async () => {
+  try {
+    const res = await fetch(`${API}/state`);
+    const data = await res.json();
+    if (data.has_tender) { state.tender = true; state.criteria = data.criteria; markDone("tender"); renderCriteria(data.criteria); }
+    if (data.bidder_count) { state.bidders = data.bidders; markDone("bidders"); renderBidderList(); document.getElementById("evaluate-btn").disabled = false; }
+    if (data.evaluation_count) { state.evaluations = data.evaluations; markDone("evaluate"); markDone("results"); renderResults(data.evaluations); }
+  } catch(e) { /* backend not running yet */ }
+};
+</script>
+</body>
+</html>
