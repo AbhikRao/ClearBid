@@ -1,5 +1,6 @@
 import streamlit as st
 import json, os, datetime, io, re
+
 from groq import Groq
 import pdfplumber
 from reportlab.lib.pagesizes import A4
@@ -11,46 +12,219 @@ from reportlab.lib.colors import HexColor
 
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="ClearBid — AI Procurement Auditor",
-    page_icon="⚖️",
+    page_title="ClearBid — Procurement Auditor",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ── Styling ───────────────────────────────────────────────────────────────────
+# ── Styling ── Midnight Tech palette ─────────────────────────────────────────
 st.markdown("""
 <style>
-  [data-testid="stAppViewContainer"] { background: #F7F9FC; }
-  [data-testid="stSidebar"] { background: #1B2A4A !important; }
-  [data-testid="stSidebar"] * { color: white !important; }
-  .main-header {
-    background: #1B2A4A; padding: 20px 28px; border-radius: 12px;
-    border-bottom: 3px solid #C9A84C; margin-bottom: 24px;
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fraunces:ital,wght@0,700;1,400&display=swap');
+
+  /* ── Global ── */
+  html, body, [data-testid="stAppViewContainer"] {
+    background: #020617 !important;
+    font-family: 'Inter', sans-serif;
+    color: #cbd5e1;
   }
-  .main-header h1 { color: white; margin: 0; font-size: 26px; }
-  .main-header p  { color: #A8BCCF; margin: 4px 0 0; font-size: 13px; }
-  .crit-card {
-    background: white; border: 1px solid #D1D9E6;
-    border-left: 4px solid #2C4A7C; border-radius: 10px;
-    padding: 14px; margin-bottom: 10px;
+
+  /* ── Sidebar ── */
+  [data-testid="stSidebar"] {
+    background: #0f172a !important;
+    border-right: 1px solid #1e293b;
   }
-  .crit-id   { font-size: 10px; color: #4A5568; font-weight: 700; text-transform: uppercase; }
-  .crit-desc { font-size: 14px; font-weight: 600; margin: 4px 0; }
-  .eligible     { background:#EBF5EC; color:#1E6B3C; padding:3px 10px; border-radius:20px; font-weight:700; font-size:12px; }
-  .not-eligible { background:#FCECEC; color:#8B1A1A; padding:3px 10px; border-radius:20px; font-weight:700; font-size:12px; }
-  .needs-review { background:#FDF6E3; color:#8B5A00; padding:3px 10px; border-radius:20px; font-weight:700; font-size:12px; }
-  .summary-box {
-    background:white; border:1px solid #D1D9E6; border-radius:12px;
-    padding:20px; text-align:center;
+  [data-testid="stSidebar"] * { color: #94a3b8 !important; }
+  [data-testid="stSidebar"] h2,
+  [data-testid="stSidebar"] strong { color: #f1f5f9 !important; }
+  [data-testid="stSidebar"] .stRadio label { color: #94a3b8 !important; font-size: 13px; }
+  [data-testid="stSidebar"] hr { border-color: #1e293b !important; }
+
+  /* ── Main area ── */
+  [data-testid="stMain"] { background: #020617 !important; }
+  .block-container { padding-top: 2rem !important; }
+
+  /* ── Header ── */
+  .cb-header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border: 1px solid #1e293b;
+    border-left: 4px solid #38bdf8;
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin-bottom: 32px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.4), 0 2px 4px -2px rgba(0,0,0,0.3);
   }
-  .summary-num  { font-size:36px; font-weight:700; color:#1B2A4A; }
-  .summary-lbl  { font-size:11px; color:#4A5568; text-transform:uppercase; margin-top:4px; }
-  .bidder-header {
-    background:#1B2A4A; color:white; padding:12px 18px;
-    border-radius:10px 10px 0 0; margin-top:20px;
-    display:flex; justify-content:space-between; align-items:center;
+  .cb-header h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+    color: #f1f5f9;
+    margin: 0 0 6px;
   }
-  div[data-testid="stMetric"] { background:white; border:1px solid #D1D9E6; border-radius:10px; padding:16px; }
+  .cb-header p { color: #64748b; font-size: 13px; margin: 0; font-weight: 400; }
+  .cb-header .tag {
+    display: inline-block;
+    background: rgba(56,189,248,0.1);
+    color: #38bdf8;
+    border: 1px solid rgba(56,189,248,0.2);
+    font-size: 11px; font-weight: 600;
+    padding: 3px 10px; border-radius: 4px;
+    margin-right: 6px; margin-top: 10px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+
+  /* ── Cards ── */
+  .cb-card {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .cb-card:hover {
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4), 0 4px 6px -4px rgba(0,0,0,0.3);
+    transform: translateY(-1px);
+  }
+  .cb-card-accent { border-left: 3px solid #38bdf8; }
+  .crit-id {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: #38bdf8; margin-bottom: 4px;
+  }
+  .crit-desc { font-size: 14px; font-weight: 500; color: #e2e8f0; margin: 4px 0; }
+  .crit-meta { font-size: 12px; color: #64748b; margin-top: 6px; }
+
+  /* ── Verdict chips ── */
+  .eligible {
+    background: rgba(34,197,94,0.1); color: #4ade80;
+    border: 1px solid rgba(34,197,94,0.2);
+    padding: 3px 12px; border-radius: 4px; font-weight: 600; font-size: 11px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .not-eligible {
+    background: rgba(239,68,68,0.1); color: #f87171;
+    border: 1px solid rgba(239,68,68,0.2);
+    padding: 3px 12px; border-radius: 4px; font-weight: 600; font-size: 11px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .needs-review {
+    background: rgba(245,158,11,0.1); color: #fbbf24;
+    border: 1px solid rgba(245,158,11,0.2);
+    padding: 3px 12px; border-radius: 4px; font-weight: 600; font-size: 11px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+
+  /* ── Bidder result header ── */
+  .bidder-hdr {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+    padding: 16px 20px;
+    margin-top: 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .bidder-hdr-name {
+    font-family: 'Fraunces', serif;
+    font-size: 17px;
+    color: #f1f5f9;
+    letter-spacing: -0.01em;
+  }
+  .bidder-hdr-id { font-size: 11px; color: #475569; margin-left: 10px; }
+
+  /* ── Metric overrides ── */
+  div[data-testid="stMetric"] {
+    background: #0f172a !important;
+    border: 1px solid #1e293b !important;
+    border-radius: 10px !important;
+    padding: 20px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+  }
+  div[data-testid="stMetric"] label { color: #64748b !important; font-size: 11px !important; text-transform: uppercase; letter-spacing: 0.05em; }
+  div[data-testid="stMetric"] [data-testid="stMetricValue"] { color: #f1f5f9 !important; font-size: 30px !important; font-weight: 700 !important; }
+
+  /* ── Buttons ── */
+  .stButton > button {
+    background: #38bdf8 !important;
+    color: #020617 !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    padding: 10px 20px !important;
+    transition: transform 0.15s, box-shadow 0.15s !important;
+    box-shadow: 0 0 0 0 rgba(56,189,248,0.4) !important;
+  }
+  .stButton > button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 0 20px rgba(56,189,248,0.3) !important;
+  }
+
+  /* ── File uploader ── */
+  [data-testid="stFileUploader"] {
+    background: #0f172a !important;
+    border: 2px dashed #1e293b !important;
+    border-radius: 10px !important;
+  }
+  [data-testid="stFileUploader"]:hover { border-color: #38bdf8 !important; }
+
+  /* ── Dataframe ── */
+  [data-testid="stDataFrame"] {
+    border: 1px solid #1e293b !important;
+    border-radius: 10px !important;
+    overflow: hidden;
+  }
+
+  /* ── Section headings ── */
+  h2, h3 {
+    font-family: 'Fraunces', serif !important;
+    letter-spacing: -0.02em !important;
+    color: #f1f5f9 !important;
+  }
+  h3 { font-size: 20px !important; margin-bottom: 4px !important; }
+  p, li { color: #94a3b8; }
+
+  /* ── Divider ── */
+  hr { border-color: #1e293b !important; }
+
+  /* ── Expander ── */
+  [data-testid="stExpander"] {
+    background: #0f172a !important;
+    border: 1px solid #1e293b !important;
+    border-radius: 8px !important;
+  }
+
+  /* ── Progress bar ── */
+  [data-testid="stProgressBar"] > div { background: #38bdf8 !important; }
+
+  /* ── Info / success / warning boxes ── */
+  [data-testid="stAlert"] {
+    background: #0f172a !important;
+    border-radius: 8px !important;
+    border: 1px solid #1e293b !important;
+    color: #94a3b8 !important;
+  }
+
+  /* ── Download button ── */
+  .stDownloadButton > button {
+    background: transparent !important;
+    color: #38bdf8 !important;
+    border: 1px solid #38bdf8 !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    transition: transform 0.15s, background 0.15s !important;
+  }
+  .stDownloadButton > button:hover {
+    background: rgba(56,189,248,0.1) !important;
+    transform: translateY(-2px) !important;
+  }
+
+  /* ── Hide Streamlit branding ── */
+  #MainMenu, footer, [data-testid="stToolbar"] { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -107,30 +281,32 @@ def verdict_badge(v: str) -> str:
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## ⚖️ ClearBid")
-    st.markdown("**AI Procurement Auditor**")
+    st.markdown("## ClearBid")
+    st.markdown("**Procurement Auditor**")
     st.markdown("---")
-    st.markdown("**Status**")
-    st.markdown(f"{'✅' if st.session_state.tender_text else '⬜'} Tender uploaded")
-    st.markdown(f"{'✅' if st.session_state.criteria else '⬜'} Criteria extracted ({len(st.session_state.criteria)})")
-    st.markdown(f"{'✅' if st.session_state.bidders else '⬜'} Bidders loaded ({len(st.session_state.bidders)})")
-    st.markdown(f"{'✅' if st.session_state.evaluations else '⬜'} Evaluation done")
+    st.markdown("**Pipeline Status**")
+    st.markdown(f"{'— Tender uploaded' if st.session_state.tender_text else '· Awaiting tender'}")
+    st.markdown(f"{'— ' + str(len(st.session_state.criteria)) + ' criteria extracted' if st.session_state.criteria else '· Criteria pending'}")
+    st.markdown(f"{'— ' + str(len(st.session_state.bidders)) + ' bidder(s) loaded' if st.session_state.bidders else '· No bidders yet'}")
+    st.markdown(f"{'— Evaluation complete' if st.session_state.evaluations else '· Not evaluated'}")
     st.markdown("---")
-    st.markdown("**Navigation**")
-    page = st.radio("Go to", ["1. Upload Tender","2. Review Criteria","3. Upload Bidders","4. Evaluate","5. Results & Report"], label_visibility="collapsed")
+    page = st.radio("Navigate", ["1. Upload Tender","2. Review Criteria","3. Upload Bidders","4. Evaluate","5. Results & Report"], label_visibility="collapsed")
     st.markdown("---")
-    if st.button("🔄 Reset Everything", use_container_width=True):
+    if st.button("Reset Everything", use_container_width=True):
         for k in ["criteria","bidders","evaluations","tender_text"]:
             st.session_state[k] = [] if k != "tender_text" else ""
         st.rerun()
     st.markdown("---")
-    st.markdown('<p style="font-size:11px;color:#A8BCCF">AI for Bharat · Theme 3: CRPF<br>GFR 2017 Compliant · NIC Ready</p>', unsafe_allow_html=True)
+    st.markdown('<p style="font-size:11px;color:#475569">AI for Bharat · Theme 3<br>GFR 2017 Compliant · NIC Ready</p>', unsafe_allow_html=True)
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("""
-<div class="main-header">
-  <h1>⚖️ ClearBid — AI Procurement Auditor</h1>
-  <p>Explainable AI for Government Tender Evaluation · AI for Bharat Hackathon · Theme 3: CRPF</p>
+<div class="cb-header">
+  <h1>ClearBid</h1>
+  <p>Explainable AI for Government Tender Evaluation &nbsp;·&nbsp; AI for Bharat &nbsp;·&nbsp; Theme 3: CRPF Procurement</p>
+  <span class="tag">GFR 2017</span>
+  <span class="tag">NIC Ready</span>
+  <span class="tag">Zero Silent Rejection</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -138,13 +314,12 @@ st.markdown("""
 # PAGE 1: UPLOAD TENDER
 # ════════════════════════════════════════════════════════════════════════════
 if page == "1. Upload Tender":
-    st.markdown("### 📄 Upload Tender Document")
-    st.markdown("Upload the CRPF tender PDF or TXT file. The AI will automatically extract all eligibility criteria.")
-
-    uploaded = st.file_uploader("Choose tender document", type=["pdf","txt"], key="tender_upload")
+    st.markdown("### Upload Tender Document")
+    st.markdown("Upload the CRPF tender PDF or TXT. The system will extract and structure all eligibility criteria.")
+    uploaded = st.file_uploader("Tender document", type=["pdf","txt"], key="tender_upload")
 
     if uploaded:
-        if st.button("🔍 Extract Criteria", type="primary", use_container_width=True):
+        if st.button("Extract Criteria", type="primary", use_container_width=True):
             with st.spinner("Parsing tender and extracting eligibility criteria..."):
                 text = parse_doc(uploaded)
                 st.session_state.tender_text = text
@@ -180,7 +355,7 @@ Return only the JSON array, no explanation, no markdown fences."""
 # PAGE 2: REVIEW CRITERIA
 # ════════════════════════════════════════════════════════════════════════════
 elif page == "2. Review Criteria":
-    st.markdown("### 📋 Extracted Eligibility Criteria")
+    st.markdown("### Extracted Eligibility Criteria")
     if not st.session_state.criteria:
         st.warning("No criteria yet. Upload a tender first.")
     else:
