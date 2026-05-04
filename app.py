@@ -348,7 +348,7 @@ Return only the JSON array, no explanation, no markdown fences."""
                     st.error(f"Error extracting criteria: {e}")
 
     if st.session_state.tender_text:
-        with st.expander("📋 Tender text preview"):
+        with st.expander("Tender text preview"):
             st.text(st.session_state.tender_text[:1000] + "...")
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -364,13 +364,12 @@ elif page == "2. Review Criteria":
         st.markdown(f"**{len(st.session_state.criteria)} criteria extracted** · {len(mandatory)} mandatory · {len(optional)} optional")
         st.markdown("---")
 
-        cat_colors = {"financial":"#1E6B3C","technical":"#2C4A7C","compliance":"#8B5A00","document":"#4A5568"}
 
         for c in st.session_state.criteria:
             col1, col2 = st.columns([3,1])
             with col1:
                 st.markdown(f"""
-                <div class="crit-card">
+                <div class="cb-card cb-card-accent">
                   <div class="crit-id">{c['id']} · {c['category'].upper()}</div>
                   <div class="crit-desc">{c['description']}</div>
                   <div style="font-size:12px;color:#4A5568;margin-top:6px">
@@ -388,7 +387,7 @@ elif page == "2. Review Criteria":
 # PAGE 3: UPLOAD BIDDERS
 # ════════════════════════════════════════════════════════════════════════════
 elif page == "3. Upload Bidders":
-    st.markdown("### 🏢 Upload Bidder Submissions")
+    st.markdown("### Upload Bidder Submissions")
     st.markdown("Upload documents for each bidder. You can upload multiple files at once.")
 
     if not st.session_state.criteria:
@@ -397,7 +396,7 @@ elif page == "3. Upload Bidders":
         files = st.file_uploader("Upload bidder documents", type=["pdf","txt"],
                                   accept_multiple_files=True, key="bidder_upload")
 
-        if files and st.button("📥 Load Bidders", type="primary"):
+        if files and st.button("Load Bidders", type="primary"):
             existing_names = [b["name"] for b in st.session_state.bidders]
             added = 0
             for f in files:
@@ -416,13 +415,13 @@ elif page == "3. Upload Bidders":
             st.markdown("---")
             st.markdown(f"**{len(st.session_state.bidders)} bidder(s) ready for evaluation:**")
             for b in st.session_state.bidders:
-                st.markdown(f"🏢 **{b['name']}** — {b['id']}")
+                st.markdown(f"**{b['name']}** — {b['id']}")
 
 # ════════════════════════════════════════════════════════════════════════════
 # PAGE 4: EVALUATE
 # ════════════════════════════════════════════════════════════════════════════
 elif page == "4. Evaluate":
-    st.markdown("### ⚙️ Run Evaluation")
+    st.markdown("### Run Evaluation")
 
     if not st.session_state.criteria:
         st.warning("Upload a tender first.")
@@ -433,7 +432,7 @@ elif page == "4. Evaluate":
         total_calls = len(st.session_state.bidders) * len(st.session_state.criteria)
         st.info(f"This will make {total_calls} AI calls. Takes about {total_calls * 3} seconds.")
 
-        if st.button("▶ Run Full Evaluation", type="primary", use_container_width=True):
+        if st.button("Run Full Evaluation", type="primary", use_container_width=True):
             results = []
             overall_progress = st.progress(0)
             status_text = st.empty()
@@ -501,7 +500,7 @@ Use NEEDS_REVIEW if evidence is ambiguous. Never guess. Return only JSON, no mar
 # PAGE 5: RESULTS & REPORT
 # ════════════════════════════════════════════════════════════════════════════
 elif page == "5. Results & Report":
-    st.markdown("### 📊 Evaluation Results")
+    st.markdown("### Evaluation Results")
 
     if not st.session_state.evaluations:
         st.warning("No evaluations yet. Run the evaluation first.")
@@ -566,7 +565,7 @@ elif page == "5. Results & Report":
             return buf.getvalue()
 
         pdf_bytes = make_pdf(evs)
-        st.download_button("⬇ Download PDF Audit Report", data=pdf_bytes,
+        st.download_button("Download PDF Audit Report", data=pdf_bytes,
             file_name="ClearBid_Report.pdf", mime="application/pdf",
             use_container_width=True, type="primary")
 
@@ -581,7 +580,7 @@ elif page == "5. Results & Report":
             st.markdown(f"""
             <div style="background:#1B2A4A;color:white;padding:14px 18px;border-radius:10px 10px 0 0;
                         display:flex;justify-content:space-between;align-items:center;margin-top:20px">
-              <span style="font-size:16px;font-weight:700">🏢 {ev['name']} <span style="font-size:12px;opacity:0.6;margin-left:8px">{ev['bidder_id']}</span></span>
+              <span class="bidder-hdr-name">{ev['name']} <span class="bidder-hdr-id">{ev['bidder_id']}</span></span>
               <span style="background:{bg};color:{color};padding:4px 14px;border-radius:20px;font-weight:700;font-size:12px">
                 {overall.replace("_"," ")}
               </span>
