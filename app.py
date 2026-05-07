@@ -606,6 +606,6 @@ elif page == "5. Results & Report":
                 if "ELIGIBLE"     in val: return "background-color:#EBF5EC;color:#1E6B3C;font-weight:700"
                 return ""
 
-            styled = df.style.applymap(color_verdict, subset=["Verdict"])
+            styled = df.style.apply(lambda col: col.map(color_verdict), subset=["Verdict"])
             st.dataframe(styled, use_container_width=True, hide_index=True)
             st.markdown(f"*Avg confidence: {ev['avg_confidence']}*")
